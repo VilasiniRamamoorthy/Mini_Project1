@@ -1,4 +1,3 @@
-
 import ast
 import json
 import sqlite3
@@ -145,7 +144,6 @@ def parse_list(value):
 # ============================================================
 
 @st.cache_data(show_spinner="Loading all six TMDB CSV files...")
-@st.cache_data
 def load_all_csv_files():
 
     data = {}
@@ -597,7 +595,7 @@ def render_sidebar_filters(genres, min_year, max_year, languages):
         "🔄 Reset All Filters",
         on_click=reset_filters,
         args=(min_year, max_year),
-        use_container_width=True
+        width = 'stretch'
     )
 
 
@@ -754,7 +752,7 @@ def render_filters(df, genres, min_year, max_year, languages):
                 "language"
             ]
         ].head(20),
-        use_container_width=True,
+        width = 'stretch',
         hide_index=True
     )
 
@@ -874,7 +872,7 @@ def render_dashboard(filtered):
 
         st.plotly_chart(
             fig,
-            use_container_width=True
+            width = 'stretch'
         )
 
     left, right = st.columns(2)
@@ -899,7 +897,7 @@ def render_dashboard(filtered):
 
             st.plotly_chart(
                 fig,
-                use_container_width=True
+                width = 'stretch'
             )
 
     # Budget vs revenue scatter plot
@@ -943,7 +941,7 @@ def render_dashboard(filtered):
 
             st.plotly_chart(
                 fig,
-                use_container_width=True
+                width = 'stretch'
             )
 
     # Automatic insights
@@ -1164,6 +1162,18 @@ def render_query_explorer(filtered):
             )
         )
 
+        # SQLite cannot store lists/dicts: convert EVERY such column
+        # (e.g. genre, cast, genre_list, actor_list) to plain text.
+        for _col in sql_df.columns:
+            if sql_df[_col].apply(
+                lambda v: isinstance(v, (list, tuple, set, dict))
+            ).any():
+                sql_df[_col] = sql_df[_col].apply(
+                    lambda v: ", ".join(map(str, v))
+                    if isinstance(v, (list, tuple, set))
+                    else (str(v) if isinstance(v, dict) else v)
+                )
+
         # Create filtered_movies SQL table
         sql_df.to_sql(
             "filtered_movies",
@@ -1258,7 +1268,7 @@ def render_query_explorer(filtered):
 
     st.dataframe(
         result,
-        use_container_width=True,
+        width = 'stretch',
         hide_index=True
     )
 
@@ -1324,7 +1334,7 @@ def render_query_explorer(filtered):
 
         st.plotly_chart(
             fig,
-            use_container_width=True
+            width = 'stretch'
         )
 
     else:
@@ -1360,10 +1370,8 @@ def main():
         )
         st.stop()
 
-    df = prepare_data(data)
-
-    # Continue with your existing filters,
-    # navigation, dashboard and query explorer code
+    try:
+        df = prepare_data(data)
 
         # Get genre names
         genres = sorted(
@@ -1402,13 +1410,15 @@ def main():
         ]
     )
 
-    # Render shared filters on every page
-    render_sidebar_filters(
-        genres,
-        min_year,
-        max_year,
-        languages
-    )
+    # Render shared filters in the sidebar on every page EXCEPT the
+    # Filters page, which draws the same widgets (same keys) in the body.
+    if page != "Filters":
+        render_sidebar_filters(
+            genres,
+            min_year,
+            max_year,
+            languages
+        )
 
     # Apply filters across all pages
     filtered = apply_filters(df)
@@ -1446,4 +1456,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
